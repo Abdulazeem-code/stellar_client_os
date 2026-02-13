@@ -90,7 +90,7 @@ const DashboardLayout = ({
     const isAvailableOnCurrentNetwork = availableNetwork.includes(currentNetwork);
 
     return (
-        <div className="flex flex-col bg-zinc-900 text-white text-base p-4 md:pt-6 md:pb-0 rounded-2xl h-full overflow-hidden">
+        <div className="flex flex-col bg-zinc-900 text-white text-base p-4 md:pt-6 md:pb-0 rounded-2xl min-h-full">
             <div className="border-b border-b-zinc-700 pb-4 w-full flex-none">
                 {/* Desktop: Title and info message on same line */}
                 <div className="hidden md:flex items-center">
@@ -118,7 +118,7 @@ const DashboardLayout = ({
             </div>
 
             <div
-                className={cn("flex-1 my-4 overflow-y-auto px-2 min-h-0", className)}
+                className={cn("flex-1 my-4 px-2", className)}
             >
                 {!availableNetwork.length ? (
                     <ComingSoon />
