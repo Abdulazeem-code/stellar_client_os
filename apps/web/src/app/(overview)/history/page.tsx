@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useWallet } from "@/providers/StellarWalletProvider";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
+import { ConnectWalletPrompt } from "@/components/layouts/ProtectedRoute";
 import HistoryTable from "@/components/modules/history/HistoryTable";
 import HistoryTableSkeleton from "@/components/modules/history/HistoryTableSkeleton";
 import { columns } from "@/components/modules/history/columns";
@@ -74,12 +75,11 @@ const HistoryPage = () => {
         <DashboardLayout title="Transaction History">
             <div className="py-6 space-y-6">
                 {!address ? (
-                    <div className="flex h-[400px] flex-col items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/50 p-8 text-center">
-                        <h2 className="text-xl font-semibold mb-2">Connect your wallet</h2>
-                        <p className="text-zinc-400 max-w-md">
-                            Please connect your Stellar wallet to view your transaction history across payment streams and distributions.
-                        </p>
-                    </div>
+                    <ConnectWalletPrompt
+                        title="Connect your wallet"
+                        description="Please connect your Stellar wallet to view your transaction history across payment streams and distributions."
+                        containerClassName="min-h-[400px]"
+                    />
                 ) : (
                     <>
                         <div className="flex items-center gap-4">

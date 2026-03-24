@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
+import ProtectedRoute from "@/components/layouts/ProtectedRoute";
 import CreatePaymentStream from "@/components/modules/payment-stream/CreatePaymentStream";
 import StreamsHistory from "@/components/modules/payment-stream/StreamsHistory";
 import StreamsTableSkeleton from "@/components/modules/payment-stream/StreamsTableSkeleton";
@@ -19,10 +20,14 @@ const PaymentStreamPage = () => {
                 showOnNetwork: "mainnet",
             }}
         >
-            <CreatePaymentStream />
-            <Suspense fallback={<StreamsTableSkeleton />}>
-                <StreamsHistory />
-            </Suspense>
+            <ProtectedRoute
+                description="Connect your Stellar wallet to create and manage payment streams."
+            >
+                <CreatePaymentStream />
+                <Suspense fallback={<StreamsTableSkeleton />}>
+                    <StreamsHistory />
+                </Suspense>
+            </ProtectedRoute>
         </DashboardLayout>
     );
 };

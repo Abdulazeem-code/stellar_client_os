@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { useWallet } from "@/providers/StellarWalletProvider";
 import { useOfframpBridge } from "@/hooks/useOfframpBridge";
 import { OfframpForm } from "@/components/offramp/OfframpForm";
 import BankDetailsCard from "@/components/offramp/BankDetailsCard";
@@ -9,11 +8,10 @@ import OfframpSummary from "@/components/offramp/OfframpSummary";
 import OfframpQuoteModal from "@/components/offramp/OfframpQuoteModal";
 import { BridgeStatusTracker } from "@/components/offramp/BridgeStatusTracker";
 import OfframpSuccessModal from "@/components/offramp/OfframpSuccessModal";
-import { Loader2 } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
+import ProtectedRoute from "@/components/layouts/ProtectedRoute";
 
 export default function OfframpPage() {
-    const { address, isConnected, openModal } = useWallet();
     const {
         step,
         error,
@@ -75,62 +73,16 @@ export default function OfframpPage() {
                 showOnNetwork: "testnet"
             }}
         >
-            <div className="space-y-8 pb-10">
-                {/* Intro text */}
-                <p className="text-fundable-light-grey max-w-2xl px-2">
-                    Withdraw Stellar USDC instantly to your bank account in Nigeria, Ghana, or Kenya.
-                </p>
+            <ProtectedRoute
+                description="Connect your Stellar wallet to convert USDC to local currency."
+            >
+                <div className="space-y-8 pb-10">
+                    {/* Intro text */}
+                    <p className="text-fundable-light-grey max-w-2xl px-2">
+                        Withdraw Stellar USDC instantly to your bank account in Nigeria, Ghana, or Kenya.
+                    </p>
 
-                {/* Wallet Connection Prompt */}
-                {!isConnected && (
-                    <div className="max-w-xl mx-auto rounded-3xl border border-white/10 bg-fundable-mid-dark p-12 text-center space-y-6">
-                        <div className="w-20 h-20 rounded-full bg-white/5 mx-auto flex items-center justify-center">
-                            <svg
-                                width="32"
-                                height="32"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                className="text-fundable-purple"
-                            >
-                                <path
-                                    d="M21 12V7H5a2 2 0 010-4h14v4"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                                <path
-                                    d="M3 5v14a2 2 0 002 2h16v-5"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                                <path
-                                    d="M18 12a1 1 0 100 2 1 1 0 000-2z"
-                                    fill="currentColor"
-                                />
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 className="text-2xl font-bold text-white mb-2">
-                                Connect Wallet
-                            </h3>
-                            <p className="text-fundable-light-grey">
-                                Please connect your Stellar wallet to use the offramp feature.
-                            </p>
-                        </div>
-                        <button
-                            onClick={openModal}
-                            className="px-8 py-4 rounded-xl font-bold text-fundable-dark bg-gradient-to-r from-fundable-purple-2 to-purple-500 hover:opacity-90 transition-all active:scale-95"
-                        >
-                            Connect Stellar Wallet
-                        </button>
-                    </div>
-                )}
-
-                {/* Main Content */}
-                {isConnected && (
+                    {/* Main Content */}
                     <div className="space-y-8">
                         {/* Error Banner */}
                         {error && !["signing", "bridging", "processing", "failed"].includes(step) && (
@@ -208,8 +160,8 @@ export default function OfframpPage() {
                             </div>
                         )}
                     </div>
-                )}
-            </div>
+                </div>
+            </ProtectedRoute>
 
             {/* Modals outside scroll area */}
             <OfframpQuoteModal

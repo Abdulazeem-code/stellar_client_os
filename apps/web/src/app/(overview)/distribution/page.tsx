@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Upload, Plus, Trash2 } from 'lucide-react';
 import { useDistributionState } from '@/hooks/use-distribution-state';
 import { downloadCSVTemplate, processCSVFile } from '@/utils/csv-processing';
+import ProtectedRoute from '@/components/layouts/ProtectedRoute';
 
 export default function DistributionPage() {
   const {
@@ -152,11 +153,12 @@ export default function DistributionPage() {
   };
 
   return (
-    <div 
-      ref={pageRef}
-      className="h-screen mt-10 bg-black text-white overflow-y-auto scroll-smooth distribution-scrollbar"
-    >
-      <div className="max-w-6xl mx-auto p-6 pb-12">
+    <ProtectedRoute description="Connect your Stellar wallet to create token distributions.">
+      <div 
+        ref={pageRef}
+        className="h-screen mt-10 bg-black text-white overflow-y-auto scroll-smooth distribution-scrollbar"
+      >
+        <div className="max-w-6xl mx-auto p-6 pb-12">
         {/* Header */}
         <h1 className="text-xl font-semibold mb-8 text-zinc-100">Create Distribution</h1>
 
@@ -387,7 +389,8 @@ export default function DistributionPage() {
             Distribute Token
           </Button>
         </div>
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 }
