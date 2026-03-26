@@ -4,6 +4,12 @@ import { useCallback, useState, useRef, useEffect } from "react";
 import { useWallet } from "@/providers/StellarWalletProvider";
 import { allbridgeService, type BridgeQuote } from "@/services/allbridge.service";
 import { offrampService } from "@/services/offramp.service";
+import {
+    createMockTxHash,
+    getMockBridgeQuote,
+    getMockDelay,
+    isOfframpMockEnabled,
+} from "@/services/offramp.mock";
 import type {
     OfframpStep,
     OfframpFormState,
@@ -102,6 +108,10 @@ export function useOfframpBridge(): UseOfframpBridgeReturn {
     }, []);
 
     // ---------- Handlers ----------
+
+    const delay = useCallback(async (key: Parameters<typeof getMockDelay>[0]) => {
+        await new Promise((resolve) => setTimeout(resolve, getMockDelay(key)));
+    }, []);
 
     const handleFormChange = useCallback((field: keyof OfframpFormState, value: string) => {
         setFormState((prev) => ({
@@ -266,7 +276,9 @@ export function useOfframpBridge(): UseOfframpBridgeReturn {
                 // Step 2: Calculate bridge fees using Allbridge SDK
                 console.log("offrampRes.data", offrampRes.data.depositAmount);
                 const depositAmount = offrampRes.data.depositAmount.toString();
-                const quoteResult = await allbridgeService.getBridgeQuote(depositAmount);
+                const quoteResult = isOfframpMockEnabled
+                    ? getMockBridgeQuote(depositAmount)
+                    : await allbridgeService.getBridgeQuote(depositAmount);
 
 
                 setBridgeQuote(quoteResult);
@@ -298,6 +310,31 @@ export function useOfframpBridge(): UseOfframpBridgeReturn {
 
     // ---------- Bridge Execution ----------
 
+    const startPayoutPolling = useCallback(() => {
+        if (!offrampData?.reference) return;
+        if (payoutPollRef.current) clearInterval(payoutPollRef.current);
+        console.log("polling reference:", offrampData.reference)
+        const intervalMs = isOfframpMockEnabled ? getMockDelay("status") : 10000;
+        payoutPollRef.current = setInterval(async () => {
+            try {
+                const res = await offrampService.getQuoteStatus(offrampData.reference, address || undefined);
+                if (res.success && res.data) {
+                    setPayoutStatus(res.data);
+                    if (res.data.status === "completed" || res.data.status === "confirmed") {
+                        if (payoutPollRef.current) clearInterval(payoutPollRef.current);
+                        setStep("completed");
+                    } else if (res.data.status === "failed") {
+                        if (payoutPollRef.current) clearInterval(payoutPollRef.current);
+                        setStep("failed");
+                        setError(res.data.providerMessage || "Payout failed");
+                    }
+                }
+            } catch {
+                // Keep polling
+            }
+        }, intervalMs);
+    }, [offrampData, address]);
+
     const confirmAndBridge = useCallback(async () => {
         if (!isConnected || !address || !offrampData || !bridgeQuote) {
             setError("Missing required data");
@@ -309,6 +346,20 @@ export function useOfframpBridge(): UseOfframpBridgeReturn {
         setStep("signing");
 
         try {
+            if (isOfframpMockEnabled) {
+                await delay("signing");
+                setStep("bridging");
+
+                const txHash = createMockTxHash();
+                setBridgeTxHash(txHash);
+                await offrampService.updateQuoteTxHash(offrampData.reference, txHash, address);
+
+                await delay("bridging");
+                setStep("processing");
+                startPayoutPolling();
+                return;
+            }
+
             let rawTx = await allbridgeService.buildBridgeTransaction({
                 amount: bridgeQuote.sendAmount,
                 fromAddress: address,
@@ -343,7 +394,7 @@ export function useOfframpBridge(): UseOfframpBridgeReturn {
         } finally {
             setIsLoading(false);
         }
-    }, [isConnected, address, offrampData, bridgeQuote, signTransaction]);
+    }, [isConnected, address, offrampData, bridgeQuote, signTransaction, delay, startPayoutPolling]);
 
     // ---------- Status Polling ----------
 
@@ -361,31 +412,7 @@ export function useOfframpBridge(): UseOfframpBridgeReturn {
                 // Keep polling — bridge may still be in progress
             }
         }, 15000);
-    }, []);
-
-    const startPayoutPolling = useCallback(() => {
-        if (!offrampData?.reference) return;
-        if (payoutPollRef.current) clearInterval(payoutPollRef.current);
-        console.log("polling reference:", offrampData.reference)
-        payoutPollRef.current = setInterval(async () => {
-            try {
-                const res = await offrampService.getQuoteStatus(offrampData.reference, address || undefined);
-                if (res.success && res.data) {
-                    setPayoutStatus(res.data);
-                    if (res.data.status === "completed" || res.data.status === "confirmed") {
-                        if (payoutPollRef.current) clearInterval(payoutPollRef.current);
-                        setStep("completed");
-                    } else if (res.data.status === "failed") {
-                        if (payoutPollRef.current) clearInterval(payoutPollRef.current);
-                        setStep("failed");
-                        setError(res.data.providerMessage || "Payout failed");
-                    }
-                }
-            } catch {
-                // Keep polling
-            }
-        }, 10000);
-    }, [offrampData, address]);
+    }, [startPayoutPolling]);
 
     // ---------- Controls ----------
 
