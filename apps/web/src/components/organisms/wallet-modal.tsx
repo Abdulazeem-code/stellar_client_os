@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Wallet, Check, X } from "lucide-react";
 import React from "react";
 import { useWallet, WalletId } from "@/providers/StellarWalletProvider";
+import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 
 export function WalletModal() {
   const { isModalOpen, closeModal, supportedWallets, connect, isConnecting, isConnected } =
@@ -24,6 +25,11 @@ export function WalletModal() {
     if (isModalOpen) setActiveSelection(null);
   }, [isModalOpen]);
 
+  const modalRef = useModalAccessibility({
+    isOpen: isModalOpen,
+    onClose: closeModal,
+  });
+
   const handleConnectClick = async () => {
     if (activeSelection) {
       try {
@@ -37,7 +43,13 @@ export function WalletModal() {
   return (
     <AnimatePresence>
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="wallet-modal-title"
+          ref={modalRef as React.RefObject<HTMLDivElement>}
+        >
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -62,7 +74,7 @@ export function WalletModal() {
               {/* Header */}
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h2 className="text-2xl font-bold text-white tracking-tight">
+                  <h2 id="wallet-modal-title" className="text-2xl font-bold text-white tracking-tight">
                     Connect Wallet
                   </h2>
                   <p className="mt-1 text-[#92A5A8] text-sm">
