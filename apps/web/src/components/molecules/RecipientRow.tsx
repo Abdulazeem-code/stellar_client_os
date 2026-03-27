@@ -2,8 +2,9 @@
  * RecipientRow - Individual recipient row with address and amount inputs
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trash2, AlertCircle } from 'lucide-react';
+import { useDebouncedCallback } from '@/hooks/use-debounce-callback';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,12 @@ export function RecipientRow({
   className,
 }: RecipientRowProps) {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [localAmount, setLocalAmount] = useState(recipient.amount || '');
+
+  // Keep local amount synced with prop if it changes externally
+  useEffect(() => {
+    setLocalAmount(recipient.amount || '');
+  }, [recipient.amount]);
 
   // Validate address in real-time
   const addressError = recipient.address ? validateStellarAddress(recipient.address) : null;
@@ -58,12 +65,17 @@ export function RecipientRow({
     });
   };
 
-  const handleAmountChange = (value: string) => {
+  const debouncedAmountChange = useDebouncedCallback((value: string) => {
     onChange({
       amount: value,
       isValid: !validateAmount(value),
       validationError: validateAmount(value) || undefined,
     });
+  }, 300);
+
+  const handleAmountChange = (value: string) => {
+    setLocalAmount(value);
+    debouncedAmountChange(value);
   };
 
   const handleRemove = () => {
@@ -120,8 +132,9 @@ export function RecipientRow({
             <Input
               type="text"
               placeholder="Amount"
-              value={recipient.amount || ''}
+              value={localAmount}
               onChange={(e) => handleAmountChange(e.target.value)}
+              onBlur={() => debouncedAmountChange(localAmount)}
               disabled={disabled}
               className={cn(
                 'text-right',
