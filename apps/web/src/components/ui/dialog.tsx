@@ -1,6 +1,7 @@
 import * as React from "react"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useModalAccessibility } from "@/hooks/useModalAccessibility"
 
 interface DialogProps {
   open: boolean
@@ -14,13 +15,24 @@ interface DialogContentProps {
 }
 
 const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children }) => {
+  const containerRef = useModalAccessibility({
+    isOpen: open,
+    onClose: () => onOpenChange(false),
+  });
+
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+      ref={containerRef as React.RefObject<HTMLDivElement>}
+    >
       <div
         className="fixed inset-0 bg-black/80"
         onClick={() => onOpenChange(false)}
+        aria-hidden="true"
       />
       {children}
     </div>

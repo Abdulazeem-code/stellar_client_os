@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import React, { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, X } from "lucide-react";
+import { useModalAccessibility } from "@/hooks/useModalAccessibility";
 
 import type { CreateOfframpResponse, OfframpFormState, BridgeFeeBreakdown } from "@/types/offramp";
 import { getCurrencySymbol } from "@/types/offramp";
@@ -26,19 +27,14 @@ export default function OfframpQuoteModal({
     onConfirm,
     isLoading,
 }: OfframpQuoteModalProps) {
-    // Handle Escape key to close modal
-    const handleKeyDown = useCallback((e: KeyboardEvent) => {
-        if (e.key === "Escape" && !isLoading) {
-            onClose();
-        }
+    const handleClose = useCallback(() => {
+        if (!isLoading) onClose();
     }, [isLoading, onClose]);
 
-    useEffect(() => {
-        if (isOpen) {
-            document.addEventListener("keydown", handleKeyDown);
-            return () => document.removeEventListener("keydown", handleKeyDown);
-        }
-    }, [isOpen, handleKeyDown]);
+    const modalRef = useModalAccessibility({
+        isOpen,
+        onClose: handleClose,
+    });
 
     if (!isOpen || !offrampData || !feeBreakdown) return null;
 
@@ -56,6 +52,10 @@ export default function OfframpQuoteModal({
             role="presentation"
             className="fixed inset-0 bg-fundable-dark/80 backdrop-blur-sm flex justify-center items-center z-50"
             onClick={handleBackdropClick}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="offramp-modal-title"
+            ref={modalRef as React.RefObject<HTMLDivElement>}
         >
             <div
                 role="dialog"
@@ -70,6 +70,7 @@ export default function OfframpQuoteModal({
                     disabled={isLoading}
                     aria-label="Close offramp confirmation"
                     className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+                    aria-label="Close modal"
                 >
                     <X className="h-5 w-5" aria-hidden="true" />
                 </button>
