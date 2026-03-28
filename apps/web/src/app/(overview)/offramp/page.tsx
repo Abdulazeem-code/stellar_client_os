@@ -10,6 +10,8 @@ import { BridgeStatusTracker } from "@/components/offramp/BridgeStatusTracker";
 import OfframpSuccessModal from "@/components/offramp/OfframpSuccessModal";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import ProtectedRoute from "@/components/layouts/ProtectedRoute";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { ErrorFallback } from "@/components/ui/error-fallback";
 
 export default function OfframpPage() {
     const {
@@ -76,14 +78,25 @@ export default function OfframpPage() {
             <ProtectedRoute
                 description="Connect your Stellar wallet to convert USDC to local currency."
             >
-                <div className="space-y-8 pb-10">
-                    {/* Intro text */}
-                    <p className="text-fundable-light-grey max-w-2xl px-2">
-                        Withdraw Stellar USDC instantly to your bank account in Nigeria, Ghana, or Kenya.
-                    </p>
+                <ErrorBoundary
+                    boundaryName="offramp-module"
+                    fallback={({ error, reset }) => (
+                        <ErrorFallback
+                            title="Offramp Unavailable"
+                            description="The offramp module hit an unexpected error."
+                            error={error}
+                            onRetry={reset}
+                        />
+                    )}
+                >
+                    <div className="space-y-8 pb-10">
+                        {/* Intro text */}
+                        <p className="text-fundable-light-grey max-w-2xl px-2">
+                            Withdraw Stellar USDC instantly to your bank account in Nigeria, Ghana, or Kenya.
+                        </p>
 
-                    {/* Main Content */}
-                    <div className="space-y-8">
+                        {/* Main Content */}
+                        <div className="space-y-8">
                         {/* Error Banner */}
                         {error && !["signing", "bridging", "processing", "failed"].includes(step) && (
                             <div className="max-w-4xl mx-auto px-6 py-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center gap-3">
@@ -159,30 +172,31 @@ export default function OfframpPage() {
                                 </button>
                             </div>
                         )}
+                        </div>
                     </div>
-                </div>
+
+                    {/* Modals outside scroll area */}
+                    <OfframpQuoteModal
+                        isOpen={showQuoteModal}
+                        offrampData={offrampData}
+                        feeBreakdown={feeBreakdown}
+                        formState={formState}
+                        onClose={handleCloseQuoteModal}
+                        onConfirm={confirmAndBridge}
+                        isLoading={isLoading}
+                    />
+
+                    <OfframpSuccessModal
+                        isOpen={showSuccessModal}
+                        feeBreakdown={feeBreakdown}
+                        payoutStatus={payoutStatus}
+                        bridgeTxHash={bridgeTxHash}
+                        onClose={() => {
+                            setShowSuccessModal(false);
+                        }}
+                    />
+                </ErrorBoundary>
             </ProtectedRoute>
-
-            {/* Modals outside scroll area */}
-            <OfframpQuoteModal
-                isOpen={showQuoteModal}
-                offrampData={offrampData}
-                feeBreakdown={feeBreakdown}
-                formState={formState}
-                onClose={handleCloseQuoteModal}
-                onConfirm={confirmAndBridge}
-                isLoading={isLoading}
-            />
-
-            <OfframpSuccessModal
-                isOpen={showSuccessModal}
-                feeBreakdown={feeBreakdown}
-                payoutStatus={payoutStatus}
-                bridgeTxHash={bridgeTxHash}
-                onClose={() => {
-                    setShowSuccessModal(false);
-                }}
-            />
         </DashboardLayout>
     );
 }
