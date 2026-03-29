@@ -13,6 +13,7 @@ import { SUPPORTED_TOKENS, PaymentStreamFormData } from "@/lib/validations";
 import { StellarService } from "@/lib/stellar";
 import { validateEndTime } from "@/lib/stream-validation";
 import { useDebouncedCallback } from "@/hooks/use-debounce-callback";
+import { useBalanceValidation } from "@/hooks/use-balance-validation";
 import { createTestnetService } from "@/services/stellar.service";
 import { PAYMENT_STREAM_CONTRACT_ID, DISTRIBUTOR_CONTRACT_ID } from "@/lib/constants";
 
@@ -70,6 +71,11 @@ const CreatePaymentStream = () => {
     const selectedToken = useMemo(() => {
         return SUPPORTED_TOKENS.find((t) => t.value === streamData.token);
     }, [streamData.token]);
+
+    const { balanceError, insufficientBalance } = useBalanceValidation(
+        streamData.amount,
+        streamData.token
+    );
 
     const estimateFee = useDebouncedCallback(async (data: StreamFormData, userAddress: string) => {
         if (!data.recipient || !data.amount || !data.durationValue || !StellarService.validateStellarAddress(data.recipient)) {
@@ -238,6 +244,8 @@ const CreatePaymentStream = () => {
                             durationOptions={durationOptions}
                             onSubmit={handleFormSubmit}
                             isSubmitting={isSubmitting}
+                            balanceError={balanceError}
+                            insufficientBalance={insufficientBalance}
                         />
                     </div>
                 </div>
