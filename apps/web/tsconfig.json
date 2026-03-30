@@ -42,6 +42,8 @@
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/*.spec.ts",
-    "**/*.spec.tsx"
+    "**/*.spec.tsx",
+    "**/*.test.mts",
+    "**/*.spec.mts"
   ]
 }

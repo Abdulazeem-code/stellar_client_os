@@ -59,16 +59,28 @@ export const StellarWalletProvider = ({
     if (typeof window === 'undefined') return null;
     const savedAddress = safeGetItem("stellar_wallet_address");
     const savedNetwork = safeGetItem("stellar_wallet_network");
+    console.log('Lazy init address:', { savedAddress, savedNetwork });
     if (savedNetwork === WalletNetwork.TESTNET) {
       return savedAddress;
     }
     return null;
   });
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("idle");
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(() => {
+    if (typeof window === 'undefined') return "idle";
+    const savedAddress = safeGetItem("stellar_wallet_address");
+    const savedWalletId = safeGetItem("stellar_wallet_id");
+    const savedNetwork = safeGetItem("stellar_wallet_network");
+    console.log('Lazy init connectionStatus:', { savedAddress, savedWalletId, savedNetwork });
+    if (savedAddress && savedWalletId && savedNetwork === WalletNetwork.TESTNET) {
+      return "connected";
+    }
+    return "idle";
+  });
   const [selectedWalletId, setSelectedWalletId] = useState<WalletId | null>(() => {
     if (typeof window === 'undefined') return null;
     const savedWalletId = safeGetItem("stellar_wallet_id");
     const savedNetwork = safeGetItem("stellar_wallet_network");
+    console.log('Lazy init selectedWalletId:', { savedWalletId, savedNetwork });
     if (savedNetwork === WalletNetwork.TESTNET) {
       return savedWalletId as WalletId | null;
     }
@@ -99,7 +111,6 @@ export const StellarWalletProvider = ({
     const savedNetwork = safeGetItem("stellar_wallet_network");
 
     if (savedAddress && savedWalletId && savedNetwork === network) {
-      setConnectionStatus("connected");
       walletKit.setWallet(savedWalletId);
 
       // Sync with backend on session restoration
