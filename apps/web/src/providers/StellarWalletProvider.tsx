@@ -16,6 +16,7 @@ import {
 import { AlertCircle } from "lucide-react";
 
 import { safeGetItem, safeSetItem, safeRemoveItem, isStorageAvailable } from "@/utils/safe-storage";
+import { isValidStellarAddress } from "@/utils/stellar-validation";
 
 import { offrampService } from "@/services/offramp.service";
 import { notify } from "@/utils/notification";
@@ -60,7 +61,7 @@ export const StellarWalletProvider = ({
     const savedAddress = safeGetItem("stellar_wallet_address");
     const savedNetwork = safeGetItem("stellar_wallet_network");
     console.log('Lazy init address:', { savedAddress, savedNetwork });
-    if (savedNetwork === WalletNetwork.TESTNET) {
+    if (savedNetwork === WalletNetwork.TESTNET && savedAddress && isValidStellarAddress(savedAddress)) {
       return savedAddress;
     }
     return null;
@@ -71,17 +72,18 @@ export const StellarWalletProvider = ({
     const savedWalletId = safeGetItem("stellar_wallet_id");
     const savedNetwork = safeGetItem("stellar_wallet_network");
     console.log('Lazy init connectionStatus:', { savedAddress, savedWalletId, savedNetwork });
-    if (savedAddress && savedWalletId && savedNetwork === WalletNetwork.TESTNET) {
+    if (savedAddress && isValidStellarAddress(savedAddress) && savedWalletId && savedNetwork === WalletNetwork.TESTNET) {
       return "connected";
     }
     return "idle";
   });
   const [selectedWalletId, setSelectedWalletId] = useState<WalletId | null>(() => {
     if (typeof window === 'undefined') return null;
+    const savedAddress = safeGetItem("stellar_wallet_address");
     const savedWalletId = safeGetItem("stellar_wallet_id");
     const savedNetwork = safeGetItem("stellar_wallet_network");
     console.log('Lazy init selectedWalletId:', { savedWalletId, savedNetwork });
-    if (savedNetwork === WalletNetwork.TESTNET) {
+    if (savedNetwork === WalletNetwork.TESTNET && savedAddress && isValidStellarAddress(savedAddress)) {
       return savedWalletId as WalletId | null;
     }
     return null;
@@ -111,6 +113,16 @@ export const StellarWalletProvider = ({
     const savedNetwork = safeGetItem("stellar_wallet_network");
 
     if (savedAddress && savedWalletId && savedNetwork === network) {
+      if (!isValidStellarAddress(savedAddress)) {
+        // Tampered or invalid address — clear storage and force reconnect
+        safeRemoveItem("stellar_wallet_address");
+        safeRemoveItem("stellar_wallet_id");
+        safeRemoveItem("stellar_wallet_network");
+        setAddress(null);
+        setSelectedWalletId(null);
+        setConnectionStatus("idle");
+        return;
+      }
       walletKit.setWallet(savedWalletId);
 
       // Sync with backend on session restoration
