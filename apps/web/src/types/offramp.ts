@@ -34,10 +34,11 @@ export interface TokenInfo {
     symbol: OfframpToken;
     name: string;
     decimals: number;
+    minimumAmount: number;
 }
 
 export const SUPPORTED_OFFRAMP_TOKENS: TokenInfo[] = [
-    { symbol: "USDC", name: "USD Coin", decimals: 7 }, // Stellar uses 7 decimals
+    { symbol: "USDC", name: "USD Coin", decimals: 7, minimumAmount: 1 },
 ];
 
 // Bank information
