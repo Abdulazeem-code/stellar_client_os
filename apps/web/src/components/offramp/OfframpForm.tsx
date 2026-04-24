@@ -59,7 +59,13 @@ export function OfframpForm({ formState, onChange, maxBalance, onMaxClick }: Off
 
                 {/* Amount Input */}
                 <div className="space-y-2">
-                    <Label htmlFor="amount" className="text-fundable-light-grey text-sm">Amount</Label>
+                    <Label htmlFor="amount" className="text-fundable-light-grey text-sm">
+                        Amount
+                        {(() => {
+                            const selectedToken = SUPPORTED_OFFRAMP_TOKENS.find(t => t.symbol === formState.token);
+                            return selectedToken ? ` (Minimum: ${selectedToken.minimumAmount} ${selectedToken.symbol})` : '';
+                        })()}
+                    </Label>
                     <div className="relative">
                         <Input
                             id="amount"

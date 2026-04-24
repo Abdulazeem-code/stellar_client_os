@@ -12,6 +12,7 @@ import type {
     OfframpCountry,
     ProviderRate,
 } from "@/types/offramp";
+import { SUPPORTED_OFFRAMP_TOKENS } from "@/types/offramp";
 
 interface UseOfframpBridgeReturn {
     // State
@@ -222,6 +223,13 @@ export function useOfframpBridge(): UseOfframpBridgeReturn {
             }
             if (!quote) {
                 setError("No valid quote available. Please check your input.");
+                return;
+            }
+
+            const amount = parseFloat(form.amount);
+            const selectedToken = SUPPORTED_OFFRAMP_TOKENS.find(t => t.symbol === form.token);
+            if (selectedToken && amount < selectedToken.minimumAmount) {
+                setError(`Amount must be at least ${selectedToken.minimumAmount} ${selectedToken.symbol}`);
                 return;
             }
 
