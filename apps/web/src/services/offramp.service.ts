@@ -289,7 +289,7 @@ const realOfframpService = {
     ): Promise<QuoteStatusResponse> {
         try {
             const res = await fetchWithRetry(
-                `${API_BASE}/api/webhook/quote/${transactionReference}`,
+                `${OFFRAMP_API_BASE}/quote/${transactionReference}`,
                 {
                     method: "GET",
                     headers: getHeaders(walletId),
