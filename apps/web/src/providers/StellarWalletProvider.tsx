@@ -196,14 +196,27 @@ export const StellarWalletProvider = ({
       setConnectionStatus("connecting");
       setIsModalOpen(false);
 
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          controller.abort();
+          reject(new Error("Connection attempt timed out after 30 seconds"));
+        }, 30000);
+      });
+
       // Await the potentially long-running wallet handshake
-      const response = await kit.getAddress();
+      const response = await Promise.race([
+        kit.getAddress(),
+        timeoutPromise
+      ]);
+
+      clearTimeout(timeoutId!);
 
       // If disconnect() or setNetwork() was called while we were awaiting,
       // the signal is aborted — discard this result entirely.
       if (signal.aborted) return;
 
-      const { address: resolvedAddress } = response;
+      const { address: resolvedAddress } = response as { address: string };
 
       if (!resolvedAddress) {
         throw new Error(
@@ -221,8 +234,8 @@ export const StellarWalletProvider = ({
       // Sync with backend on new connection
       offrampService.syncWallet(resolvedAddress);
     } catch (error: unknown) {
-      // Don't surface errors for intentionally aborted connections
-      if (signal.aborted) return;
+      // Don't surface errors for intentionally aborted connections (except timeouts)
+      if (signal.aborted && !(error instanceof Error && error.message.includes("timed out"))) return;
 
       let errorMessage = "Unknown connection error";
       if (error instanceof Error) errorMessage = error.message;
