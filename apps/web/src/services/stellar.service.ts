@@ -12,6 +12,9 @@
  */
 
 import {
+  NativeBalance,
+  Transaction,
+  FeeBumpTransaction,
   Keypair,
   TransactionBuilder,
   Operation,
@@ -52,7 +55,7 @@ import {
   ValidationError,
   parseError,
 } from './errors';
-import { withRetry } from '@/utils/retry';
+import { isAbortError, withAbortSignal, withRetry } from '@/utils/retry';
 
 // Default configuration values
 const DEFAULT_TIMEOUT = 30; // seconds
@@ -95,16 +98,16 @@ export class StellarService {
    * @param address - Stellar account address
    * @returns Account information including balances
    */
-  async getAccount(address: string): Promise<AccountInfo> {
+  async getAccount(address: string, signal?: AbortSignal): Promise<AccountInfo> {
     return withRetry(async () => {
       try {
-        const account = await this.horizonServer.loadAccount(address);
+        const account = await withAbortSignal(this.horizonServer.loadAccount(address), signal);
 
-        const balances: AccountBalance[] = account.balances.map((bal: any) => ({
+        const balances: AccountBalance[] = account.balances.map((bal: Horizon.BalanceLine) => ({
           balance: bal.balance,
           assetType: bal.asset_type,
-          assetCode: 'asset_code' in bal ? bal.asset_code : undefined,
-          assetIssuer: 'asset_issuer' in bal ? bal.asset_issuer : undefined,
+          assetCode: 'asset_code' in bal ? (bal as Horizon.BalanceLineAsset).asset_code : undefined,
+          assetIssuer: 'asset_issuer' in bal ? (bal as Horizon.BalanceLineAsset).asset_issuer : undefined,
         }));
 
         return {
@@ -113,13 +116,16 @@ export class StellarService {
           balances,
         };
       } catch (error) {
+        if (isAbortError(error)) {
+          throw error;
+        }
         const err = error as Error & { response?: { status?: number } };
         if (err?.response?.status === 404) {
           throw new AccountNotFoundError(address, err); // 404 — not retried
         }
         throw parseError(error);
       }
-    }, { maxRetries: this.maxRetries });
+    }, { maxRetries: this.maxRetries, signal });
   }
 
   /**
@@ -315,6 +321,70 @@ export class StellarService {
   }
 
   /**
+   * Estimate the fee for creating a payment stream without submitting
+   * @param params - Stream creation parameters
+   * @param senderAddress - The address creating the stream
+   * @returns Estimated fee in XLM
+   */
+  async getStreamCreationFeeEstimate(
+    params: CreateStreamParams,
+    senderAddress: string
+  ): Promise<string> {
+    try {
+      this.validateCreateStreamParams(params);
+
+      const args = [
+        new Address(senderAddress).toScVal(),
+        new Address(params.recipient).toScVal(),
+        new Address(params.token).toScVal(),
+        nativeToScVal(params.totalAmount, { type: 'i128' }),
+        nativeToScVal(params.startTime, { type: 'u64' }),
+        nativeToScVal(params.endTime, { type: 'u64' }),
+      ];
+
+      // Create a simulation request
+      let accountForSim: Account;
+      try {
+        const account = await this.rpcServer.getAccount(senderAddress);
+        accountForSim = account;
+      } catch {
+        accountForSim = new Account(senderAddress, "0");
+      }
+
+      const tx = new TransactionBuilder(accountForSim, {
+        fee: DEFAULT_BASE_FEE,
+        networkPassphrase: this.networkPassphrase,
+      })
+        .addOperation(
+          Operation.invokeHostFunction({
+            func: xdr.HostFunction.hostFunctionTypeInvokeContract(
+              new xdr.InvokeContractArgs({
+                contractAddress: new Address(this.paymentStreamContractId).toScAddress(),
+                functionName: 'create_stream',
+                args,
+              })
+            ),
+            auth: [],
+          })
+        )
+        .setTimeout(this.defaultTimeout)
+        .build();
+
+      const simulation = await this.rpcServer.simulateTransaction(tx);
+
+      if (Api.isSimulationSuccess(simulation)) {
+        const feeInStroops = BigInt(simulation.minResourceFee);
+        const feeInXLM = Number(feeInStroops) / 10000000;
+        // round up slightly for safety and format to 4 decimals
+        return `~${(feeInXLM + 0.0001).toFixed(4)} XLM`;
+      }
+      return "~0.0001 XLM";
+    } catch {
+      return "~0.0001 XLM";
+    }
+  }
+
+  /**
    * Withdraw from a payment stream
    * @param streamId - Stream ID to withdraw from
    * @param amount - Amount to withdraw
@@ -488,7 +558,7 @@ export class StellarService {
    */
   async getDistributionHistory(startId: bigint, limit: bigint): Promise<(DistributionHistory & { id: string })[]> {
     try {
-      const result = await this.invokeContractReadOnly<any[]>(
+      const result = await this.invokeContractReadOnly<Record<string, unknown>[]>(
         this.distributorContractId,
         'get_distribution_history',
         [
@@ -497,13 +567,13 @@ export class StellarService {
         ]
       );
 
-      return (result || []).map((r: any, index: number) => ({
+      return (result || []).map((r: Record<string, unknown>, index: number) => ({
         id: (startId + BigInt(index)).toString(),
-        sender: r.sender,
-        token: r.token,
-        amount: BigInt(r.amount),
-        recipients_count: Number(r.recipients_count),
-        timestamp: BigInt(r.timestamp),
+        sender: String(r.sender),
+        token: String(r.token),
+        amount: BigInt(r.amount as string | number | bigint | boolean),
+        recipients_count: Number(r.recipients_count as string | number),
+        timestamp: BigInt(r.timestamp as string | number | bigint | boolean),
       }));
     } catch (error) {
       throw parseError(error);
@@ -590,8 +660,16 @@ export class StellarService {
   ): Promise<T | null> {
     try {
       // Create a simulation request
-      const accountResponse = await this.rpcServer.getAccount(contractId) as any;
-      const sourceAccount = new Account(accountResponse.id || accountResponse.accountId, accountResponse.sequence);
+      let sourceAddress: string;
+      try {
+        const accountResponse = await this.rpcServer.getAccount(contractId);
+        sourceAddress = accountResponse.id;
+      } catch {
+        // Fallback for contract IDs or if getAccount fails
+        sourceAddress = contractId;
+      }
+      
+      const sourceAccount = new Account(sourceAddress, "0"); // Sequence 0 for simulation
 
       const tx = new TransactionBuilder(sourceAccount, {
         fee: DEFAULT_BASE_FEE,
@@ -710,7 +788,7 @@ export class StellarService {
   /**
    * Submit transaction and wait for confirmation
    */
-  private async submitAndWait(tx: any): Promise<TransactionResult<unknown>> {
+  private async submitAndWait(tx: Transaction | FeeBumpTransaction): Promise<TransactionResult<unknown>> {
     const sendResponse = await withRetry(() => this.rpcServer.sendTransaction(tx), { maxRetries: this.maxRetries }) as Awaited<ReturnType<typeof this.rpcServer.sendTransaction>>;
     const hash = sendResponse.hash;
 

@@ -7,6 +7,7 @@ import { WalletModal } from "@/components/organisms/wallet-modal";
 import AppProvider from "@/providers/app-provider";
 import { ToastProvider } from "@/providers/ToastProvider";
 import ReactQueryProvider from "@/providers/ReactQueryProvider";
+import { RootErrorBoundary } from "@/components/ui/root-error-boundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,11 +42,13 @@ export default function RootLayout({
       >
         <ReactQueryProvider>
           <StellarWalletProvider>
-            <AppProvider>
-              {/* <Navbar /> */}
-              <main className="">{children}</main>
+            <RootErrorBoundary>
+              <Navbar />
+              <AppProvider>
+                {children}
+              </AppProvider>
               <WalletModal />
-            </AppProvider>
+            </RootErrorBoundary>
           </StellarWalletProvider>
         </ReactQueryProvider>
         <ToastProvider />

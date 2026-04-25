@@ -3,14 +3,16 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
+import { useDebouncedCallback } from './use-debounce-callback';
 import type { 
   DistributionState, 
   DistributionType, 
   Recipient, 
   ValidationError 
 } from '@/types/distribution';
-import { validateStellarAddress, findDuplicateAddresses } from '@/utils/stellar-validation';
+import { isValidStellarAddress, validateStellarAddress, findDuplicateAddresses } from '@/utils/stellar-validation';
 import { validateAmount, calculateEqualAmount, calculateTotalAmount } from '@/utils/amount-validation';
+import { notify } from '@/utils/notification';
 
 /**
  * Initial state for distribution
@@ -76,6 +78,9 @@ export function useDistributionState() {
         sessionStorage.setItem('distribution-state', JSON.stringify(state));
       } catch (error) {
         console.warn('Failed to persist distribution state to session storage:', error);
+        if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+          notify.error("Storage quota exceeded. Your progress will not be saved. Please clear some space.");
+        }
       }
     }
   }, [state]);
@@ -149,6 +154,11 @@ export function useDistributionState() {
     return errors;
   }, []);
 
+  const debouncedValidate = useDebouncedCallback((currentState: DistributionState) => {
+    const errors = validateState(currentState);
+    setState(prev => ({ ...prev, errors, isValid: errors.length === 0 }));
+  }, 150);
+
   /**
    * Update distribution type
    */
@@ -161,8 +171,8 @@ export function useDistributionState() {
         recipients: prevState.recipients.map(recipient => ({
           ...recipient,
           amount: type === 'weighted' ? recipient.amount || '' : undefined,
-          isValid: true, // Will be revalidated
-          validationError: undefined,
+          isValid: isValidStellarAddress(recipient.address),
+          validationError: validateStellarAddress(recipient.address) ?? undefined,
         })),
         totalAmount: type === 'equal' ? prevState.totalAmount : '',
       };
@@ -181,11 +191,13 @@ export function useDistributionState() {
    */
   const addRecipient = useCallback((address: string = '', amount?: string) => {
     setState(prevState => {
+      const trimmed = address.trim();
       const newRecipient: Recipient = {
         id: generateRecipientId(),
-        address: address.trim(),
+        address: trimmed,
         amount: prevState.type === 'weighted' ? (amount || '') : undefined,
-        isValid: true,
+        isValid: isValidStellarAddress(trimmed),
+        validationError: validateStellarAddress(trimmed) ?? undefined,
       };
 
       const newState: DistributionState = {
@@ -209,21 +221,22 @@ export function useDistributionState() {
     setState(prevState => {
       const newState: DistributionState = {
         ...prevState,
-        recipients: prevState.recipients.map(recipient =>
-          recipient.id === id
-            ? { ...recipient, ...updates, isValid: true, validationError: undefined }
-            : recipient
-        ),
+        recipients: prevState.recipients.map(recipient => {
+          if (recipient.id !== id) return recipient;
+          const updated = { ...recipient, ...updates };
+          const addr = updated.address ?? '';
+          return {
+            ...updated,
+            isValid: isValidStellarAddress(addr),
+            validationError: validateStellarAddress(addr) ?? undefined,
+          };
+        }),
       };
 
-      const errors = validateState(newState);
-      return {
-        ...newState,
-        errors,
-        isValid: errors.length === 0,
-      };
+      debouncedValidate(newState);
+      return newState;
     });
-  }, [validateState]);
+  }, [debouncedValidate]);
 
   /**
    * Remove a recipient
@@ -249,9 +262,18 @@ export function useDistributionState() {
    */
   const bulkAddRecipients = useCallback((recipients: Recipient[]) => {
     setState(prevState => {
+      const existingAddresses = new Set(prevState.recipients.map(r => r.address));
+      const validated = recipients
+        .filter(r => !existingAddresses.has(r.address))
+        .map(r => ({
+          ...r,
+          isValid: isValidStellarAddress(r.address),
+          validationError: validateStellarAddress(r.address) ?? undefined,
+        }));
+
       const newState: DistributionState = {
         ...prevState,
-        recipients: [...prevState.recipients, ...recipients],
+        recipients: [...prevState.recipients, ...validated],
       };
 
       const errors = validateState(newState);

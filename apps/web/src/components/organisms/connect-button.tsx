@@ -28,21 +28,12 @@ const ArrowDownIcon = ({
 export function ConnectButton() {
   const { isConnected, address, openModal, disconnect } = useWallet();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const formatAddress = (addr: string) => {
-    if (!addr) return "";
-    return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
-  };
-
-  const handleDisconnect = async () => {
-    try {
-      await disconnect();
-      setDropdownOpen(false);
-    } catch (error) {
-      console.error("Disconnect failed:", error);
-    }
-  };
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -58,13 +49,32 @@ export function ConnectButton() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  if (!mounted) {
+    return <div className="w-[140px] h-[36px]" aria-hidden="true" />;
+  }
+
+  const formatAddress = (addr: string) => {
+    if (!addr) return "";
+    return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnect();
+      setDropdownOpen(false);
+    } catch (error) {
+      // Silently fail disconnect
+    }
+  };
+
   if (isConnected && address) {
     return (
       <div className="relative" ref={dropdownRef}>
         <motion.button
           type="button"
           aria-expanded={dropdownOpen}
-          aria-haspopup="true"
+          aria-haspopup="menu"
+          aria-label={`Wallet connected: ${formatAddress(address)}. Click to open wallet menu`}
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -90,10 +100,13 @@ export function ConnectButton() {
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
               className="absolute top-full right-0 mt-3 w-48 bg-[#0F1621]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 p-2"
+              role="menu"
+              aria-label="Wallet options"
             >
               <button
                 type="button"
                 role="menuitem"
+                aria-label="Disconnect wallet"
                 onClick={handleDisconnect}
                 className="flex items-center gap-3 w-full px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all text-sm font-bold"
               >
@@ -110,6 +123,7 @@ export function ConnectButton() {
   return (
     <motion.button
       type="button"
+      aria-label="Connect your Stellar wallet"
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={openModal}

@@ -35,9 +35,9 @@ const AppSelect = ({
 }: AppSelectProps) => {
     return (
         <Select onValueChange={setValue} value={value}>
-            <div className="flex flex-col min-w-max">
+            <div className="flex w-full flex-col min-w-0">
                 {!!title && (
-                    <h3 className={cn("mb-3 text-nowrap text-zinc-300", titleClassName)}>{title}</h3>
+                    <h3 className={cn("mb-3 text-zinc-300 sm:text-nowrap", titleClassName)}>{title}</h3>
                 )}
                 <SelectTrigger
                     className={cn(

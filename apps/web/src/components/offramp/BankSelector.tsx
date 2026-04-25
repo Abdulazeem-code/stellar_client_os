@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import type { Bank, OfframpCountry } from "@/types/offramp";
 import { offrampService } from "@/services/offramp.service";
+import { notify } from "@/utils/notification";
 
 interface BankSelectorProps {
     country: OfframpCountry;
@@ -41,7 +42,7 @@ export function BankSelector({
                     setBanks(res.data);
                 }
             } catch (e) {
-                console.error("Failed to load banks:", e);
+                notify.error("Failed to load banks. Please try again later.");
             } finally {
                 setIsLoadingBanks(false);
             }

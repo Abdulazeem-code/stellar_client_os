@@ -12,10 +12,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogClose,
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog"
 import { withdrawStreamSchema, type WithdrawStreamFormData, type StreamRecord } from "@/lib/validations"
 import { StellarService } from "@/lib/stellar"
+import { isAbortError } from "@/utils/retry"
+import { notify } from "@/utils/notification"
 
 interface WithdrawStreamModalProps {
   open: boolean
@@ -59,25 +62,25 @@ export function WithdrawStreamModal({
   useEffect(() => {
     if (!open || !stream.id) return
 
-    let cancelled = false
+    const controller = new AbortController()
     setIsLoadingAmount(true)
 
-    StellarService.getWithdrawableAmount(stream.id)
+    StellarService.getWithdrawableAmount(stream.id, controller.signal)
       .then(amount => {
-        if (cancelled) return
+        if (controller.signal.aborted) return
         setWithdrawableAmount(amount)
       })
       .catch(error => {
-        if (cancelled) return
-        console.error("Failed to fetch withdrawable amount:", error)
+        if (isAbortError(error)) return
+        notify.error("Failed to fetch withdrawable amount")
         onError?.("Failed to fetch withdrawable amount")
       })
       .finally(() => {
-        if (!cancelled) setIsLoadingAmount(false)
+        if (!controller.signal.aborted) setIsLoadingAmount(false)
       })
 
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [open, stream.id, onError])
 
@@ -115,7 +118,7 @@ export function WithdrawStreamModal({
       onOpenChange(false)
       reset()
     } catch (error) {
-      console.error("Error withdrawing from stream:", error)
+      notify.error(error instanceof Error ? error.message : "Failed to withdraw from stream")
       onError?.(error instanceof Error ? error.message : "Failed to withdraw from stream")
     } finally {
       setIsSubmitting(false)
@@ -131,9 +134,12 @@ export function WithdrawStreamModal({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="w-full max-w-sm">
+      <DialogContent className="w-full max-w-sm" onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>Withdraw From Stream</DialogTitle>
+          <DialogDescription>
+            Withdraw available funds from your payment stream.
+          </DialogDescription>
           <DialogClose onClick={handleClose} />
         </DialogHeader>
 
@@ -171,6 +177,7 @@ export function WithdrawStreamModal({
                 size="sm"
                 onClick={() => setValue("useMax", true)}
                 disabled={isSubmitting || isLoadingAmount}
+                aria-pressed={useMax}
               >
                 Max
               </Button>
@@ -180,6 +187,7 @@ export function WithdrawStreamModal({
                 size="sm"
                 onClick={() => setValue("useMax", false)}
                 disabled={isSubmitting}
+                aria-pressed={!useMax}
               >
                 Custom
               </Button>
@@ -196,13 +204,16 @@ export function WithdrawStreamModal({
                   type="number"
                   step="0.0000001"
                   placeholder="0.00"
+                  aria-label={`Withdrawal amount in ${stream.tokenSymbol}`}
+                  aria-describedby={errors.amount ? "withdraw-amount-error" : undefined}
+                  aria-invalid={!!errors.amount}
                   {...register("amount")}
                   disabled={isSubmitting}
                 />
               </div>
             )}
             {errors.amount && (
-              <p className="text-sm text-red-400">{errors.amount.message}</p>
+              <p id="withdraw-amount-error" role="alert" className="text-sm text-red-400">{errors.amount.message}</p>
             )}
           </div>
 
@@ -217,6 +228,7 @@ export function WithdrawStreamModal({
                 size="sm"
                 onClick={() => setValue("useSelf", true)}
                 disabled={isSubmitting}
+                aria-pressed={useSelf}
               >
                 Self
               </Button>
@@ -226,6 +238,7 @@ export function WithdrawStreamModal({
                 size="sm"
                 onClick={() => setValue("useSelf", false)}
                 disabled={isSubmitting}
+                aria-pressed={!useSelf}
               >
                 Other Address
               </Button>
@@ -235,11 +248,14 @@ export function WithdrawStreamModal({
               <div className="space-y-1">
                 <Input
                   placeholder="GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                  aria-label="Withdrawal destination address"
+                  aria-describedby={errors.withdrawTo ? "withdraw-to-error" : undefined}
+                  aria-invalid={!!errors.withdrawTo}
                   {...register("withdrawTo")}
                   disabled={isSubmitting}
                 />
                 {errors.withdrawTo && (
-                  <p className="text-sm text-red-400">{errors.withdrawTo.message}</p>
+                  <p id="withdraw-to-error" role="alert" className="text-sm text-red-400">{errors.withdrawTo.message}</p>
                 )}
               </div>
             )}

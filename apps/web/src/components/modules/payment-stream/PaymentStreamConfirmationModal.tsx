@@ -4,11 +4,13 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
+  DialogDescription,
   DialogClose, 
   DialogFooter 
 } from "@/components/ui/dialog"
 import { PaymentStreamSummary } from "./PaymentStreamSummary"
 import { PaymentStreamFormData } from "@/lib/validations"
+import { Loader2 } from "lucide-react"
 
 interface PaymentStreamConfirmationModalProps {
   open: boolean
@@ -16,6 +18,8 @@ interface PaymentStreamConfirmationModalProps {
   data: PaymentStreamFormData
   onConfirm: (data: PaymentStreamFormData) => Promise<void>
   isSubmitting: boolean
+  estimatedFee?: string | null
+  isEstimatingFee?: boolean
 }
 
 export function PaymentStreamConfirmationModal({
@@ -24,25 +28,34 @@ export function PaymentStreamConfirmationModal({
   data,
   onConfirm,
   isSubmitting,
+  estimatedFee,
+  isEstimatingFee = false
 }: PaymentStreamConfirmationModalProps) {
   const handleConfirm = () => {
+    if (isSubmitting) {
+      return
+    }
     onConfirm(data)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="w-[94vw] max-w-2xl sm:w-full max-h-[85vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Confirm Payment Stream</DialogTitle>
+          <DialogDescription>
+            Please review the payment stream details before confirming the transaction.
+          </DialogDescription>
           <DialogClose onClick={() => onOpenChange(false)} />
         </DialogHeader>
         
         <div className="space-y-4">
-          <p className="text-zinc-400">
-            Please review the payment stream details before confirming the transaction.
-          </p>
           
-          <PaymentStreamSummary data={data} />
+          <PaymentStreamSummary 
+            data={data} 
+            estimatedFee={estimatedFee}
+            isEstimatingFee={isEstimatingFee}
+          />
           
           <div className="p-4 bg-yellow-900/20 border border-yellow-800 rounded-lg">
             <h4 className="font-medium text-yellow-400 mb-2">Important Notes:</h4>
@@ -71,8 +84,14 @@ export function PaymentStreamConfirmationModal({
           <Button
             onClick={handleConfirm}
             disabled={isSubmitting}
+            className={isSubmitting ? "pointer-events-none" : ""}
           >
-            {isSubmitting ? "Creating Stream..." : "Confirm & Create Stream"}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Creating Stream...
+              </>
+            ) : "Confirm & Create Stream"}
           </Button>
         </DialogFooter>
       </DialogContent>

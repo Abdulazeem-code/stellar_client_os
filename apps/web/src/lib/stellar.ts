@@ -5,6 +5,37 @@ import { PaymentStreamFormData, SUPPORTED_TOKENS, StreamRecord, WithdrawStreamFo
 export const server = new Horizon.Server('https://horizon-testnet.stellar.org')
 export const networkPassphrase = Networks.TESTNET
 
+function createAbortError(): Error {
+  const error = new Error('The operation was aborted')
+  error.name = 'AbortError'
+  return error
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw createAbortError()
+  }
+}
+
+function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  throwIfAborted(signal)
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+
+    const onAbort = () => {
+      clearTimeout(timeout)
+      signal?.removeEventListener('abort', onAbort)
+      reject(createAbortError())
+    }
+
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 export interface CreateStreamParams {
   senderKeypair: Keypair
   recipientAddress: string
@@ -16,15 +47,15 @@ export interface CreateStreamParams {
 }
 
 export class StellarService {
-  static async createPaymentStream(formData: PaymentStreamFormData): Promise<string> {
+  static async createPaymentStream(formData: PaymentStreamFormData, signal?: AbortSignal): Promise<string> {
     try {
+      throwIfAborted(signal)
+
       // For demo purposes, we'll simulate the transaction
       // In a real implementation, you would:
       // 1. Connect to user's wallet (Freighter, etc.)
       // 2. Get the user's keypair
       // 3. Build and submit the actual transaction to the smart contract
-
-      console.log('Creating payment stream with data:', formData)
 
       // Convert duration to seconds (using parseFloat to handle fractional durations)
       const durationValue = parseFloat(formData.duration)
@@ -47,11 +78,14 @@ export class StellarService {
       // 3. Submit the transaction to the network
 
       // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await abortableDelay(2000, signal)
+      throwIfAborted(signal)
 
       return streamId
     } catch (error) {
-      console.error('Error creating payment stream:', error)
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error
+      }
       throw new Error('Failed to create payment stream: ' + (error instanceof Error ? error.message : 'Unknown error'))
     }
   }
@@ -79,15 +113,15 @@ export class StellarService {
     return num.toFixed(decimals)
   }
 
-  static async getWithdrawableAmount(streamId: string): Promise<string> {
+  static async getWithdrawableAmount(streamId: string, signal?: AbortSignal): Promise<string> {
     try {
+      throwIfAborted(signal)
+
       // In a real implementation, this would call the smart contract
       // For demo purposes, we'll simulate the calculation
 
-      console.log('Getting withdrawable amount for stream:', streamId)
-
       // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await abortableDelay(1000, signal)
 
       // Mock calculation - in reality this would be based on:
       // - Current time vs stream start/end time
@@ -95,22 +129,26 @@ export class StellarService {
       // - Already withdrawn amount
       const mockWithdrawableAmount = "150.5000000" // 150.5 tokens available
 
+      throwIfAborted(signal)
       return mockWithdrawableAmount
     } catch (error) {
-      console.error('Error getting withdrawable amount:', error)
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error
+      }
       throw new Error('Failed to get withdrawable amount')
     }
   }
 
   static async withdrawFromStream(
     streamId: string,
-    formData: WithdrawStreamFormData
+    formData: WithdrawStreamFormData,
+    signal?: AbortSignal
   ): Promise<string> {
     try {
-      console.log('Withdrawing from stream:', streamId, formData)
+      throwIfAborted(signal)
 
       // Validate withdrawal amount against available amount
-      const availableAmount = await this.getWithdrawableAmount(streamId)
+      const availableAmount = await this.getWithdrawableAmount(streamId, signal)
       const requestedAmount = parseFloat(formData.amount)
       const maxAvailable = parseFloat(availableAmount)
 
@@ -124,24 +162,27 @@ export class StellarService {
       // 3. Submit the transaction to the network
 
       // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await abortableDelay(2000, signal)
+      throwIfAborted(signal)
 
       // Mock transaction hash
       const txHash = `withdraw_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
 
       return txHash
     } catch (error) {
-      console.error('Error withdrawing from stream:', error)
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error
+      }
       throw error instanceof Error ? error : new Error('Failed to withdraw from stream')
     }
   }
 
-  static async getStreamDetails(streamId: string): Promise<StreamRecord> {
+  static async getStreamDetails(streamId: string, signal?: AbortSignal): Promise<StreamRecord> {
     try {
-      console.log('Getting stream details for:', streamId)
+      throwIfAborted(signal)
 
       // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500))
+      await abortableDelay(500, signal)
 
       // Mock stream data - in reality this would come from the blockchain
       const mockStream: StreamRecord = {
@@ -159,9 +200,12 @@ export class StellarService {
         transferable: false,
       }
 
+      throwIfAborted(signal)
       return mockStream
     } catch (error) {
-      console.error('Error getting stream details:', error)
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error
+      }
       throw new Error('Failed to get stream details')
     }
   }

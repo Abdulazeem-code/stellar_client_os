@@ -8,7 +8,8 @@ import {
     Wallet,
     Pause,
     Play,
-    XCircle
+    XCircle,
+    Shield
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -21,16 +22,19 @@ import { Button } from "@/components/ui/button";
 import type { StreamRecord } from "@/lib/validations";
 import { STELLAR_EXPERT_URL } from "@/lib/constants";
 import { WithdrawStreamModal } from "./WithdrawStreamModal";
+import { ManageDelegateModal } from "./ManageDelegateModal";
 import { toast } from "react-hot-toast";
 import { useWallet } from "@/providers/StellarWalletProvider";
+import { pauseStream, resumeStream, cancelStream } from "@/lib/api";
 
 type StreamActionsCellProps = {
     stream: StreamRecord;
 };
 
 export default function StreamActionsCell({ stream }: StreamActionsCellProps) {
-    const { address } = useWallet();
+    const { address, signTransaction } = useWallet();
     const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+    const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const isSender = address?.toLowerCase() === stream.sender.toLowerCase();
@@ -52,12 +56,16 @@ export default function StreamActionsCell({ stream }: StreamActionsCellProps) {
     const handleOpenWithdraw = () => setIsWithdrawOpen(true);
 
     const handlePause = async () => {
+        if (!signTransaction) return;
         setIsLoading(true);
         try {
-            // In a real app, this would call the service
-            // await StellarService.pauseStream(BigInt(stream.id), ...);
+            await pauseStream({
+                id: stream.id,
+                signTransaction,
+            });
             toast.success("Stream paused successfully");
         } catch (error) {
+            console.error("Pause error:", error);
             toast.error("Failed to pause stream");
         } finally {
             setIsLoading(false);
@@ -65,11 +73,16 @@ export default function StreamActionsCell({ stream }: StreamActionsCellProps) {
     };
 
     const handleResume = async () => {
+        if (!signTransaction) return;
         setIsLoading(true);
         try {
-            // await StellarService.resumeStream(BigInt(stream.id), ...);
+            await resumeStream({
+                id: stream.id,
+                signTransaction,
+            });
             toast.success("Stream resumed successfully");
         } catch (error) {
+            console.error("Resume error:", error);
             toast.error("Failed to resume stream");
         } finally {
             setIsLoading(false);
@@ -77,13 +90,18 @@ export default function StreamActionsCell({ stream }: StreamActionsCellProps) {
     };
 
     const handleCancel = async () => {
+        if (!signTransaction) return;
         if (!confirm("Are you sure you want to cancel this stream? This action cannot be undone.")) return;
 
         setIsLoading(true);
         try {
-            // await StellarService.cancelStream(BigInt(stream.id), ...);
+            await cancelStream({
+                id: stream.id,
+                signTransaction,
+            });
             toast.success("Stream canceled successfully");
         } catch (error) {
+            console.error("Cancel error:", error);
             toast.error("Failed to cancel stream");
         } finally {
             setIsLoading(false);
@@ -98,9 +116,8 @@ export default function StreamActionsCell({ stream }: StreamActionsCellProps) {
         <>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-zinc-700" disabled={isLoading}>
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4 text-white" />
+                    <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-zinc-700" disabled={isLoading} aria-label={`Stream actions for stream ${stream.id}`}>
+                        <MoreHorizontal className="h-4 w-4 text-white" aria-hidden="true" />
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -144,6 +161,16 @@ export default function StreamActionsCell({ stream }: StreamActionsCellProps) {
                         </DropdownMenuItem>
                     )}
 
+                    {isSender && (
+                        <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => setIsDelegateModalOpen(true)}
+                        >
+                            <Shield className="mr-2 h-4 w-4" />
+                            Manage Delegate
+                        </DropdownMenuItem>
+                    )}
+
                     {(isSender || isRecipient) && <DropdownMenuSeparator />}
 
                     <DropdownMenuItem
@@ -167,6 +194,13 @@ export default function StreamActionsCell({ stream }: StreamActionsCellProps) {
                 open={isWithdrawOpen}
                 onOpenChange={setIsWithdrawOpen}
                 stream={stream}
+            />
+
+            <ManageDelegateModal
+                isOpen={isDelegateModalOpen}
+                onClose={() => setIsDelegateModalOpen(false)}
+                streamId={stream.id}
+                currentDelegate={stream.delegateAddress ?? undefined}
             />
         </>
     );
