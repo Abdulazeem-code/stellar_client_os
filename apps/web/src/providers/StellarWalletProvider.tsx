@@ -16,6 +16,7 @@ import {
 import { AlertCircle } from "lucide-react";
 
 import { safeGetItem, safeSetItem, safeRemoveItem, isStorageAvailable } from "@/utils/safe-storage";
+import { isValidStellarAddress } from "@/utils/stellar-validation";
 
 import { offrampService } from "@/services/offramp.service";
 import { notify } from "@/utils/notification";
@@ -55,9 +56,38 @@ export const StellarWalletProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const [address, setAddress] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("idle");
-  const [selectedWalletId, setSelectedWalletId] = useState<WalletId | null>(null);
+  const [address, setAddress] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const savedAddress = safeGetItem("stellar_wallet_address");
+    const savedNetwork = safeGetItem("stellar_wallet_network");
+    console.log('Lazy init address:', { savedAddress, savedNetwork });
+    if (savedNetwork === WalletNetwork.TESTNET && savedAddress && isValidStellarAddress(savedAddress)) {
+      return savedAddress;
+    }
+    return null;
+  });
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(() => {
+    if (typeof window === 'undefined') return "idle";
+    const savedAddress = safeGetItem("stellar_wallet_address");
+    const savedWalletId = safeGetItem("stellar_wallet_id");
+    const savedNetwork = safeGetItem("stellar_wallet_network");
+    console.log('Lazy init connectionStatus:', { savedAddress, savedWalletId, savedNetwork });
+    if (savedAddress && isValidStellarAddress(savedAddress) && savedWalletId && savedNetwork === WalletNetwork.TESTNET) {
+      return "connected";
+    }
+    return "idle";
+  });
+  const [selectedWalletId, setSelectedWalletId] = useState<WalletId | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const savedAddress = safeGetItem("stellar_wallet_address");
+    const savedWalletId = safeGetItem("stellar_wallet_id");
+    const savedNetwork = safeGetItem("stellar_wallet_network");
+    console.log('Lazy init selectedWalletId:', { savedWalletId, savedNetwork });
+    if (savedNetwork === WalletNetwork.TESTNET && savedAddress && isValidStellarAddress(savedAddress)) {
+      return savedWalletId as WalletId | null;
+    }
+    return null;
+  });
   const [network, setNetworkState] = useState<WalletNetwork>(WalletNetwork.TESTNET);
   const [kit, setKit] = useState<StellarWalletsKit | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -83,9 +113,16 @@ export const StellarWalletProvider = ({
     const savedNetwork = safeGetItem("stellar_wallet_network");
 
     if (savedAddress && savedWalletId && savedNetwork === network) {
-      setAddress(savedAddress);
-      setSelectedWalletId(savedWalletId);
-      setConnectionStatus("connected");
+      if (!isValidStellarAddress(savedAddress)) {
+        // Tampered or invalid address — clear storage and force reconnect
+        safeRemoveItem("stellar_wallet_address");
+        safeRemoveItem("stellar_wallet_id");
+        safeRemoveItem("stellar_wallet_network");
+        setAddress(null);
+        setSelectedWalletId(null);
+        setConnectionStatus("idle");
+        return;
+      }
       walletKit.setWallet(savedWalletId);
 
       // Sync with backend on session restoration
@@ -159,14 +196,27 @@ export const StellarWalletProvider = ({
       setConnectionStatus("connecting");
       setIsModalOpen(false);
 
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          controller.abort();
+          reject(new Error("Connection attempt timed out after 30 seconds"));
+        }, 30000);
+      });
+
       // Await the potentially long-running wallet handshake
-      const response = await kit.getAddress();
+      const response = await Promise.race([
+        kit.getAddress(),
+        timeoutPromise
+      ]);
+
+      clearTimeout(timeoutId!);
 
       // If disconnect() or setNetwork() was called while we were awaiting,
       // the signal is aborted — discard this result entirely.
       if (signal.aborted) return;
 
-      const { address: resolvedAddress } = response;
+      const { address: resolvedAddress } = response as { address: string };
 
       if (!resolvedAddress) {
         throw new Error(
@@ -184,8 +234,8 @@ export const StellarWalletProvider = ({
       // Sync with backend on new connection
       offrampService.syncWallet(resolvedAddress);
     } catch (error: unknown) {
-      // Don't surface errors for intentionally aborted connections
-      if (signal.aborted) return;
+      // Don't surface errors for intentionally aborted connections (except timeouts)
+      if (signal.aborted && !(error instanceof Error && error.message.includes("timed out"))) return;
 
       let errorMessage = "Unknown connection error";
       if (error instanceof Error) errorMessage = error.message;
@@ -219,7 +269,7 @@ export const StellarWalletProvider = ({
         errorMessage.toLowerCase().includes("user rejected") ||
         errorMessage.toLowerCase().includes("permission denied")
       ) {
-        // Silently handle user rejection
+        notify.error("Connection rejected by user");
       } else {
         // Show a generic but helpful error for other errors
         notify.error(`Failed to connect to ${walletId}: ${errorMessage}`);
