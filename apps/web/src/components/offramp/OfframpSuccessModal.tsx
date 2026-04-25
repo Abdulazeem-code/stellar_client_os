@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import toast from "react-hot-toast";
 import type { QuoteStatusData } from "@/types/offramp";
+import { STELLAR_EXPERT_URL } from "@/lib/constants";
  
 interface OfframpSuccessModalProps {
     isOpen: boolean;
@@ -99,7 +100,7 @@ export default function OfframpSuccessModal({
  
                     {bridgeTxHash && (
                         <a
-                            href={`https://stellar.expert/explorer/public/tx/${bridgeTxHash}`}
+                            href={`${STELLAR_EXPERT_URL}/tx/${bridgeTxHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center justify-center gap-2 w-full py-3 text-xs text-fundable-purple hover:text-fundable-violet transition-colors font-medium"

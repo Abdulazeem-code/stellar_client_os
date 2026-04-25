@@ -81,7 +81,11 @@ export function OfframpForm({ formState, onChange, maxBalance, onMaxClick }: Off
                         />
                         <button
                             type="button"
-                            onClick={onMaxClick}
+                            onClick={() => {
+                                if (window.confirm("Are you sure you want to offramp your entire balance?")) {
+                                    onMaxClick?.();
+                                }
+                            }}
                             disabled={!maxBalance || !onMaxClick}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-fundable-purple text-sm font-medium hover:text-fundable-violet disabled:opacity-50 disabled:cursor-not-allowed"
                         >

@@ -22,4 +22,7 @@ export const paymentStreamStatus = ["active", "paused", "canceled", "completed"]
 export const validPageLimits = [10, 20, 50, 100] as const;
 
 // Stellar Explorer
-export const STELLAR_EXPERT_URL = "https://stellar.expert/explorer/testnet";
+const isTestnet = NETWORK_PASSPHRASE?.includes("Test SDF Network");
+export const STELLAR_EXPERT_URL = isTestnet 
+    ? "https://stellar.expert/explorer/testnet" 
+    : "https://stellar.expert/explorer/public";

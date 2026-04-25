@@ -12,6 +12,7 @@ import type {
 } from '@/types/distribution';
 import { isValidStellarAddress, validateStellarAddress, findDuplicateAddresses } from '@/utils/stellar-validation';
 import { validateAmount, calculateEqualAmount, calculateTotalAmount } from '@/utils/amount-validation';
+import { notify } from '@/utils/notification';
 
 /**
  * Initial state for distribution
@@ -77,6 +78,9 @@ export function useDistributionState() {
         sessionStorage.setItem('distribution-state', JSON.stringify(state));
       } catch (error) {
         console.warn('Failed to persist distribution state to session storage:', error);
+        if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+          notify.error("Storage quota exceeded. Your progress will not be saved. Please clear some space.");
+        }
       }
     }
   }, [state]);
