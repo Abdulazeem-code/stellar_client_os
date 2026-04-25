@@ -34,6 +34,31 @@ export default function DistributionPage() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const pageRef = React.useRef<HTMLDivElement>(null);
 
+  const [selectedRecipients, setSelectedRecipients] = React.useState<Set<string>>(new Set());
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedRecipients(new Set(state.recipients.map(r => r.id)));
+    } else {
+      setSelectedRecipients(new Set());
+    }
+  };
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedRecipients);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedRecipients(newSelected);
+  };
+
+  const handleBulkDelete = () => {
+    selectedRecipients.forEach(id => removeRecipient(id));
+    setSelectedRecipients(new Set());
+  };
+
   const showMessage = (type: 'success' | 'error', message: string) => {
     setUploadStatus({ type, message });
     setTimeout(() => setUploadStatus({ type: null, message: '' }), 5000);
@@ -313,6 +338,14 @@ export default function DistributionPage() {
           <Table>
             <TableHeader className="sticky top-0 bg-zinc-900/90 backdrop-blur-sm z-10">
               <TableRow className="border-zinc-800">
+                <TableHead className="w-12 text-zinc-400">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-purple-600 focus:ring-purple-600 focus:ring-offset-zinc-900 cursor-pointer"
+                    checked={state.recipients.length > 0 && selectedRecipients.size === state.recipients.length}
+                    onChange={handleSelectAll}
+                  />
+                </TableHead>
                 <TableHead className="w-12 text-zinc-400">#</TableHead>
                 <TableHead className="text-zinc-400">Address</TableHead>
                 <TableHead className="w-24 text-right text-zinc-400">
@@ -324,6 +357,14 @@ export default function DistributionPage() {
             <TableBody>
               {state.recipients.map((recipient, index) => (
                 <TableRow key={recipient.id} className="border-zinc-800">
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-purple-600 focus:ring-purple-600 focus:ring-offset-zinc-900 cursor-pointer"
+                      checked={selectedRecipients.has(recipient.id)}
+                      onChange={(e) => handleSelectRow(recipient.id, e.target.checked)}
+                    />
+                  </TableCell>
                   <TableCell className="text-zinc-500">{index + 1}</TableCell>
                   <TableCell>
                     <Input
@@ -371,14 +412,27 @@ export default function DistributionPage() {
 
         {/* Action Buttons */}
         <div className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={handleAddRecipient}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Add Row
-          </Button>
+          <div className="flex gap-4">
+            <Button
+              variant="outline"
+              onClick={handleAddRecipient}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Row
+            </Button>
+            
+            {selectedRecipients.size > 0 && (
+              <Button
+                variant="outline"
+                onClick={handleBulkDelete}
+                className="flex items-center gap-2 text-red-500 border-red-900/50 hover:bg-red-900/20 hover:text-red-400"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Selected
+              </Button>
+            )}
+          </div>
 
           <Button
             className="bg-purple-600 hover:bg-purple-700"
