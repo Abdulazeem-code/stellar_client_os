@@ -32,3 +32,12 @@ export * from "./deployer";
 // Export utility modules
 export * from "./utils/batchDistribution";
 export * from "./utils/events";
+
+// Export error handling utilities
+export {
+  parseContractError,
+  executeWithErrorHandling,
+  FundableStellarError,
+  CONTRACT_ERRORS,
+  type ParsedContractError,
+} from "./utils/errors";
