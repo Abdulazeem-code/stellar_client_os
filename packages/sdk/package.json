@@ -9,7 +9,8 @@
         "build": "tsc",
         "dev": "tsc --watch",
         "test": "vitest --run",
-        "test:watch": "vitest"
+        "test:watch": "vitest",
+        "test:coverage": "vitest --run --coverage"
     },
     "dependencies": {
         "@stellar/stellar-sdk": "^14.4.3"
@@ -17,7 +18,8 @@
     "devDependencies": {
         "typescript": "^5",
         "@types/node": "^20",
-        "vitest": "^2.0.0"
+        "vitest": "^2.0.0",
+        "@vitest/coverage-v8": "^2.0.0"
     },
     "peerDependencies": {
         "@stellar/stellar-sdk": "^14.4.3"
