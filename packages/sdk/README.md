@@ -24,6 +24,45 @@ This SDK has a peer dependency on `@stellar/stellar-sdk`. You will need to have 
 pnpm add @stellar/stellar-sdk
 ```
 
+## Address Support
+
+All SDK methods that accept address parameters now support both string addresses and `@stellar/stellar-sdk` `Address` objects. This provides better type safety and consistency with the underlying Stellar SDK.
+
+**Example:**
+
+```typescript
+import { PaymentStreamClient, Address } from "@fundable/sdk";
+import { Address as StellarAddress } from "@stellar/stellar-sdk";
+
+const client = new PaymentStreamClient(config);
+
+// Using string addresses (still supported)
+const tx1 = await client.createStream({
+  sender: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+  recipient: "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+  token: "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+  // ... other params
+});
+
+// Using Address objects (new feature)
+const senderAddress = new StellarAddress(
+  "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
+);
+const recipientAddress = new StellarAddress(
+  "GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+);
+const tokenAddress = new StellarAddress(
+  "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+);
+
+const tx2 = await client.createStream({
+  sender: senderAddress,
+  recipient: recipientAddress,
+  token: tokenAddress,
+  // ... other params
+});
+```
+
 ---
 
 ## API Reference (Under Development)
@@ -113,6 +152,7 @@ const weightedTx = await distributor.distributeWeighted({
 Waits for an `AssembledTransaction` to be confirmed on-chain. This simplifies the UX for developers by automatically handling polling and confirmation.
 
 **Features:**
+
 - Automatic polling with configurable intervals
 - Timeout protection (default: 60 seconds)
 - Progress tracking with optional callbacks
@@ -120,6 +160,7 @@ Waits for an `AssembledTransaction` to be confirmed on-chain. This simplifies th
 - Full TypeScript support
 
 **Example:**
+
 ```typescript
 import { PaymentStreamClient, waitForTransaction } from "@fundable/sdk";
 
@@ -130,7 +171,10 @@ await tx.signAndSend({
   signTransaction: (xdr) => wallet.signTransaction(xdr),
 });
 
-const result = await waitForTransaction(tx, "https://soroban-testnet.stellar.org");
+const result = await waitForTransaction(
+  tx,
+  "https://soroban-testnet.stellar.org"
+);
 console.log(`Stream created with ID: ${result.result}`);
 console.log(`Confirmed on ledger: ${result.ledger}`);
 ```
@@ -140,6 +184,7 @@ console.log(`Confirmed on ledger: ${result.ledger}`);
 Convenience method that combines `signAndSend` with `waitForTransaction` in a single call.
 
 **Example:**
+
 ```typescript
 import { PaymentStreamClient, signAndWait } from "@fundable/sdk";
 
@@ -149,7 +194,7 @@ const tx = await client.createStream(params);
 const result = await signAndWait(
   tx,
   "https://soroban-testnet.stellar.org",
-  (xdr) => wallet.signTransaction(xdr),
+  (xdr) => wallet.signTransaction(xdr)
 );
 
 console.log(`Stream created with ID: ${result.result}`);
@@ -165,15 +210,15 @@ The `Stream` interface represents the data structure for a payment stream.
 
 ```typescript
 export interface Stream {
-    id: bigint;
-    sender: string;
-    recipient: string;
-    token: string;
-    totalAmount: bigint;
-    withdrawnAmount: bigint;
-    startTime: bigint;
-    endTime: bigint;
-    status: "Active" | "Paused" | "Canceled" | "Completed";
+  id: bigint;
+  sender: string;
+  recipient: string;
+  token: string;
+  totalAmount: bigint;
+  withdrawnAmount: bigint;
+  startTime: bigint;
+  endTime: bigint;
+  status: "Active" | "Paused" | "Canceled" | "Completed";
 }
 ```
 
@@ -182,10 +227,7 @@ export interface Stream {
 Here's a complete example of creating a payment stream and waiting for confirmation:
 
 ```typescript
-import {
-  PaymentStreamClient,
-  signAndWait,
-} from "@fundable/sdk";
+import { PaymentStreamClient, signAndWait } from "@fundable/sdk";
 
 const client = new PaymentStreamClient({
   contractId: "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
@@ -208,7 +250,7 @@ async function createAndConfirmStream() {
   const result = await signAndWait(
     tx,
     "https://soroban-testnet.stellar.org",
-    (xdr) => wallet.signTransaction(xdr),
+    (xdr) => wallet.signTransaction(xdr)
   );
 
   console.log(`Stream created with ID: ${result.result}`);
