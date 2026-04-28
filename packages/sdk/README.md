@@ -71,22 +71,79 @@ The SDK provides client classes for interacting with the deployed smart contract
 
 ### `PaymentStreamClient`
 
-The `PaymentStreamClient` provides methods for interacting with the `payment-stream` contract.
+The `PaymentStreamClient` provides a high-level interface for creating and managing continuous payment streams.
 
-- **`createStream(...)`**: Create a new payment stream.
-- **`getStream(...)`**: Retrieve stream details.
-- **`withdrawableAmount(...)`**: Calculate the withdrawable amount for a stream.
-- **`withdraw(...)`**: Withdraw from a stream.
-- **`pauseStream(...)`**: Pause a stream.
-- **`resumeStream(...)`**: Resume a stream.
-- **`cancelStream(...)`**: Cancel a stream.
+**Initialize:**
+```typescript
+import { PaymentStreamClient } from "@fundable/sdk";
+
+const client = new PaymentStreamClient({
+  contractId: "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+  networkPassphrase: "Test SDF Network ; September 2015",
+  rpcUrl: "https://soroban-testnet.stellar.org",
+});
+```
+
+**Common Methods:**
+-   **`createStream(params)`**: Initialize a new stream between a sender and recipient.
+-   **`withdraw(streamId, amount)`**: Withdraw vested tokens from a stream.
+-   **`pauseStream(streamId)`**: Temporarily stop vesting (sender only).
+-   **`cancelStream(streamId)`**: Permanently end a stream and return unvested tokens to the sender.
+-   **`getStream(streamId)`**: Fetch current status and metadata for a stream.
+
+**Example: Creating and Monitoring a Stream**
+```typescript
+const tx = await client.createStream({
+  sender: "GAAA...",
+  recipient: "GBBB...",
+  token: "CAAA...", // Contract ID of the token (e.g. USDC)
+  total_amount: 1000000000n,
+  initial_amount: 100000000n, // Optional upfront payment
+  start_time: BigInt(Math.floor(Date.now() / 1000)),
+  end_time: BigInt(Math.floor(Date.now() / 1000) + 86400 * 30), // 30 day vesting
+});
+
+// Sign and send using your preferred wallet
+const result = await tx.signAndSend({ signTransaction: myWallet.sign });
+```
 
 ### `DistributorClient`
 
-The `DistributorClient` provides methods for interacting with the `distributor` contract.
+The `DistributorClient` is used for one-to-many token distributions, such as airdrops or payroll.
 
-- **`distributeEqual(...)`**: Distribute tokens equally to a list of recipients.
-- **`distributeWeighted(...)`**: Distribute tokens with weighted amounts to a list of recipients.
+**Initialize:**
+```typescript
+import { DistributorClient } from "@fundable/sdk";
+
+const distributor = new DistributorClient({
+  contractId: "CB...",
+  networkPassphrase: "Test SDF Network ; September 2015",
+  rpcUrl: "https://soroban-testnet.stellar.org",
+});
+```
+
+**Common Methods:**
+-   **`distributeEqual(params)`**: Sends an equal amount of tokens to every recipient in the list.
+-   **`distributeWeighted(params)`**: Sends specific amounts to different recipients in a single transaction.
+
+**Example: Bulk Payment**
+```typescript
+// Distribute 1000 tokens equally to 5 people
+const tx = await distributor.distributeEqual({
+  sender: "GAAA...",
+  token: "CAAA...",
+  total_amount: 1000000000n,
+  recipients: ["GA...", "GB...", "GC...", "GD...", "GE..."],
+});
+
+// Or use weighted distribution for payroll
+const weightedTx = await distributor.distributeWeighted({
+  sender: "GAAA...",
+  token: "CAAA...",
+  recipients: ["G_DEV_1...", "G_DEV_2..."],
+  amounts: [600000000n, 400000000n],
+});
+```
 
 ### Transaction Utilities
 
@@ -167,7 +224,7 @@ export interface Stream {
 
 ## Usage Example
 
-Here's how to use the SDK to create a payment stream and wait for confirmation:
+Here's a complete example of creating a payment stream and waiting for confirmation:
 
 ```typescript
 import { PaymentStreamClient, signAndWait } from "@fundable/sdk";
@@ -176,7 +233,6 @@ const client = new PaymentStreamClient({
   contractId: "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
   networkPassphrase: "Test SDF Network ; September 2015",
   rpcUrl: "https://soroban-testnet.stellar.org",
-  publicKey: userPublicKey,
 });
 
 async function createAndConfirmStream() {
